@@ -1,7 +1,7 @@
-# Female Labor Force Participation: Japan vs. Sweden (1990–2025)
+# Female Labor Force Participation: Japan vs. Sweden (1968–2025)
 
 A data-analysis project comparing women's labor market attachment in Japan and
-Sweden over three decades — rebuilt in R as a portfolio piece
+Sweden over nearly six decades — rebuilt in R as a portfolio piece
 (originally written in R as university coursework; the original code was
 later found and its logic folded into Part B below).
 
@@ -11,22 +11,27 @@ later found and its logic folded into Part B below).
 
 ## Key findings
 
-**1. Japan caught up dramatically; Sweden started high and stayed high.**
-Female labor force participation (ages 15+) rose from **50.1% to 55.9%
-(+5.8 pp)** in Japan between 1990 and 2025, while Sweden edged from
-**62.8% to 61.5% (−1.3 pp)** — Sweden's slight decline reflects an aging
-population rather than weaker attachment (see finding 3).
+**1. Both countries started near 50% in 1968 — then diverged sharply.**
+Female labor force participation (ages 15+) rose from **50.5% to 73.3%
+(+22.8 pp)** in Sweden between 1968 and 2025, but only from **50.7% to
+56.4% (+5.7 pp)** in Japan. Sweden's rise reflects decades of
+parental-leave and public-childcare policy supporting continuous careers;
+Japan's slower climb came largely from women re-entering as non-regular
+workers (see Part B).
 
-**2. The gender gap narrowed far faster in Japan.**
-The male-minus-female participation gap fell from **27.2 pp to 15.6 pp
-(−11.7 pp)** in Japan vs. **8.6 pp to 6.1 pp (−2.5 pp)** in Sweden.
+**2. The gender gap narrowed far faster in Sweden.**
+The male-minus-female participation gap fell from **31.5 pp to 4.7 pp
+(−26.8 pp)** in Sweden vs. **31.4 pp to 15.3 pp (−16.1 pp)** in Japan
+between 1968 and 2025 — both countries started from the same ~31 pp gap.
 
-**3. Japan's "M-curve" is flattening; Sweden never had one.**
+**3. Japan's "M-curve" deepened, then flattened; Sweden's never took hold.**
 Plotting participation by 5-year age band reveals Japan's classic M-shape:
 women exit the labor force in their early 30s (childcare ages) and return
-later. The dip (participation at 25–29 minus 30–34) shrank from
-**9.7 pp in 1990 to 5.0 pp in 2024**. Sweden's curve rises continuously
-through the 30s and 40s — no dip at any point in 1990–2024.
+later. The dip (participation at 25–29 minus 30–34) widened from
+**9.7 pp in 1990 to a peak of 13.4 pp in 1998**, then shrank to
+**5.0 pp in 2024**. Sweden's curve rises continuously through the 30s and
+40s — the dip has been negative (i.e., no dip at all) in every year since
+1985.
 
 **4. Young Japanese women now out-participate young Swedish women.**
 At ages 25–29 in 2024: **Japan 88.9% vs. Sweden 83.9%**.
@@ -41,32 +46,35 @@ as the M-curve flattens.
 
 | Dataset | Source | Indicator | Coverage |
 |---|---|---|---|
-| Headline participation rates | [World Bank API](https://api.worldbank.org/v2) (no key required) | `SL.TLF.CACT.FE.ZS` (female), `SL.TLF.CACT.MA.ZS` (male) — labor force participation, % of population ages 15+, modeled ILO estimate | Japan, Sweden, 1990–2025 |
-| Participation by 5-year age band | [ILOSTAT SDMX API](https://sdmx.ilo.org) (no key required) | `EAP_DWAP_SEX_AGE_RT` — labour force participation rate by sex and age, sourced from national Labour Force Surveys (Japan: Statistics Bureau LFS; Sweden: EU-LFS) | Japan, Sweden, 1990–2024 |
+| Headline participation rates (15+) | [OECD Data Explorer](https://data-explorer.oecd.org/) via the [OECD SDMX API](https://sdmx.oecd.org/public/rest/v1/) (no key required) | "Employment and unemployment by five-year age group and sex – indicators": `LF_RATE` (labour force participation rate), `% of population`, age `_T` (total 15+) | Japan 1968–2025, Sweden 1963–2025 |
+| Participation by 5-year age band | Same OECD dataset & API | Same indicator, ages 15–19 … 60–64 and 65+ | Japan 1968–2025, Sweden 1963–2025 |
 
 The R scripts read the cached tidy CSVs under `data/` directly (no API
 calls at run time), so the analysis is fully reproducible and the numbers
-match the charts exactly. Note the two sources use slightly
-different estimation methods, so headline levels are compared within — not
-across — sources.
+match the charts exactly. Both Part A series come from the single OECD
+dataset above (national Labour Force Surveys: Japan's Statistics Bureau
+LFS via e-Stat; Sweden's EU-LFS), so headline levels and age profiles are
+directly comparable. Cached API responses: `oecd_lfpr_jpn_swe.csv`
+(15+ totals) and `oecd_lfpr_jpn_swe_age.csv` (5-year bands).
 
 ## Methods
 
-- `analysis.R` reads the cached CSVs in `data/` with `readr`, tidies with
-  `dplyr`/`tidyr`, and prints the headline statistics quoted above to the
-  console.
+- `analysis.R` reads the cached OECD CSVs in `data/` with `readr`
+  (`oecd_lfpr_jpn_swe.csv` for 15+ totals, `oecd_lfpr_jpn_swe_age.csv`
+  for 5-year bands), tidies with `dplyr`/`tidyr`, and prints the headline
+  statistics quoted above to the console.
 - Four charts are produced with `ggplot2` (see `figures/`):
-  1. `fig1_female_lfpr_trend.png` — long-run female participation, 1990–2025
+  1. `fig1_female_lfpr_trend.png` — long-run female participation, 1968–2025
   2. `fig2_age_profile_mcurve.png` — age profiles in 2024: Japan's M-curve vs. Sweden's continuous curve
-  3. `fig3_gender_gap.png` — male–female participation gap, 1990–2025
-  4. `fig4_japan_mcurve_evolution.png` — Japan's M-curve flattening, 1990 → 2024
+  3. `fig3_gender_gap.png` — male–female participation gap, 1968–2025
+  4. `fig4_japan_mcurve_evolution.png` — Japan's M-curve deepens then flattens, 1990 → 2024
 
 ## How to run
 
-Requires R (≥ 4.0) with the `tidyverse` and `scales` packages:
+Requires R (≥ 4.0) with the tidyverse core packages and `scales`:
 
 ```r
-install.packages(c("tidyverse", "scales"))
+install.packages(c("ggplot2", "dplyr", "tidyr", "readr", "scales"))
 ```
 
 Then, from the project directory:
@@ -85,8 +93,8 @@ Figures are written to `figures/`.
 ├── analysis_nonregular.R           # Part B: non-regular employment (Japan/Sweden)
 ├── README.md
 ├── data/
-│   ├── wb_lfpr_jpn_swe.csv           # cached World Bank response (Part A)
-│   ├── ilostat_age_lfpr_jpn_swe.csv  # cached ILOSTAT response (Part A)
+│   ├── oecd_lfpr_jpn_swe.csv           # cached OECD response, 15+ totals (Part A)
+│   ├── oecd_lfpr_jpn_swe_age.csv      # cached OECD response, 5-year age bands (Part A)
 │   ├── estat_nonregular_jpn.csv      # e-Stat LFS Table 1-2-4, Japan (Part B)
 │   └── jpn_nonregular_2024_tidy.csv  # tidy non-regular shares, Japan 2024 (Part B)
 ├── figures/

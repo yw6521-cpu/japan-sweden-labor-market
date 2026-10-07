@@ -1,19 +1,24 @@
 # =============================================================================
-# Female Labor Force Participation: Japan vs. Sweden (1990-2025)
+# Female Labor Force Participation: Japan vs. Sweden (OECD)
 # -----------------------------------------------------------------------------
 # Part A of the portfolio project. Reads the cached tidy CSVs under data/
-# (no API calls — numbers are identical to the archived Python version) and
-# reproduces figures fig1–fig4 with ggplot2. Prints the key numerical
-# findings to the console.
+# (OECD Data Explorer, dataset "Employment and unemployment by five-year age
+# group and sex - indicators", measure: labour force participation rate;
+# pulled via the OECD SDMX API, no API calls at run time) and reproduces
+# figures fig1–fig4 with ggplot2. Prints the key numerical findings.
 #
 # Run from the project directory:
 #   Rscript analysis.R
 #
-# Required packages: tidyverse, scales
+# Required packages: ggplot2, dplyr, tidyr, readr, scales
+# (the tidyverse core used here)
 # =============================================================================
 
 suppressPackageStartupMessages({
-  library(tidyverse)
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(readr)
   library(scales)
 })
 
@@ -37,19 +42,26 @@ theme_clean <- function() {
 }
 
 # ------------------------------------------------------------------ data
-wb <- read_csv(file.path(DATA_DIR, "wb_lfpr_jpn_swe.csv"), show_col_types = FALSE)
+# 15+ headline rates (OECD age "_T" = total 15+)
+tot <- read_csv(file.path(DATA_DIR, "oecd_lfpr_jpn_swe.csv"),
+                show_col_types = FALSE)
 
+# 5-year age bands
 age_levels <- c("15-19", "20-24", "25-29", "30-34", "35-39",
-                "40-44", "45-49", "50-54", "55-59", "60-64")
-ilo <- read_csv(file.path(DATA_DIR, "ilostat_age_lfpr_jpn_swe.csv"),
+                "40-44", "45-49", "50-54", "55-59", "60-64", "65+")
+age <- read_csv(file.path(DATA_DIR, "oecd_lfpr_jpn_swe_age.csv"),
                 show_col_types = FALSE) %>%
   mutate(age = factor(age, levels = age_levels, ordered = TRUE))
+
+# Common year range across both countries (Japan starts 1968)
+YR0 <- 1968
+YR1 <- max(tot$year)
 
 # ================================================================ figures
 
 # ---- fig1: long-run female participation trends, Japan vs Sweden ----
 fig1_trend <- function() {
-  f <- wb %>% filter(sex == "female")
+  f <- tot %>% filter(sex == "female", year >= YR0)
   last_pts <- f %>%
     group_by(country) %>%
     filter(year == max(year)) %>%
@@ -65,7 +77,7 @@ fig1_trend <- function() {
     scale_color_manual(values = c("Japan" = JP_RED, "Sweden" = SE_BLUE)) +
     scale_x_continuous(expand = expansion(mult = c(0.01, 0.08))) +
     labs(
-      title = "Female labor force participation rate (ages 15+), 1990-2025",
+      title = sprintf("Female labor force participation rate (ages 15+), %d-%d (OECD)", YR0, YR1),
       x = "Year", y = "% of female population ages 15+", color = NULL
     ) +
     theme_clean() +
@@ -77,7 +89,7 @@ fig1_trend <- function() {
 
 # ---- fig2: the M-curve — female participation by age, 2024 ----
 fig2_age_profile <- function(year = 2024) {
-  sub <- ilo %>% filter(sex == "female", year == !!year) %>% arrange(age)
+  sub <- age %>% filter(sex == "female", year == !!year) %>% arrange(age)
 
   jp_vals <- sub %>% filter(country == "Japan")
   dip <- with(jp_vals,
@@ -102,7 +114,7 @@ fig2_age_profile <- function(year = 2024) {
     ) +
     scale_color_manual(values = c("Japan" = JP_RED, "Sweden" = SE_BLUE)) +
     labs(
-      title = sprintf("Female participation by age group, %d", year),
+      title = sprintf("Female participation by age group, %d (OECD)", year),
       subtitle = "Japan's M-curve vs Sweden's continuous profile",
       x = "Age group", y = "% of female population in age group", color = NULL
     ) +
@@ -116,7 +128,8 @@ fig2_age_profile <- function(year = 2024) {
 
 # ---- fig3: gender gap (male minus female) over time ----
 fig3_gender_gap <- function() {
-  gap <- wb %>%
+  gap <- tot %>%
+    filter(year >= YR0) %>%
     pivot_wider(names_from = sex, values_from = value) %>%
     mutate(gap = male - female)
   last_pts <- gap %>%
@@ -135,7 +148,7 @@ fig3_gender_gap <- function() {
     scale_color_manual(values = c("Japan" = JP_RED, "Sweden" = SE_BLUE)) +
     scale_x_continuous(expand = expansion(mult = c(0.01, 0.08))) +
     labs(
-      title = "Gender gap in labor force participation (male minus female), 1990-2025",
+      title = sprintf("Gender gap in labor force participation (male minus female), %d-%d (OECD)", YR0, YR1),
       x = "Year", y = "Percentage points", color = "Country"
     ) +
     theme_clean() +
@@ -145,10 +158,10 @@ fig3_gender_gap <- function() {
          width = 10, height = 5.5, dpi = 150)
 }
 
-# ---- fig4: Japan's M-curve flattening, 1990 -> 2024 ----
+# ---- fig4: Japan's M-curve evolution, 1990 -> 2024 ----
 fig4_japan_evolution <- function() {
   years <- c(1990, 2000, 2010, 2024)
-  sub <- ilo %>%
+  sub <- age %>%
     filter(country == "Japan", sex == "female", year %in% years) %>%
     arrange(age) %>%
     mutate(year = factor(year, levels = years))
@@ -160,7 +173,7 @@ fig4_japan_evolution <- function() {
     geom_point(size = 2.2) +
     scale_color_manual(values = reds) +
     labs(
-      title = "Japan: the M-curve flattens as female participation rises (1990-2024)",
+      title = "Japan: the M-curve deepens then flattens (1990-2024, OECD)",
       x = "Age group", y = "% of female population in age group", color = "Year"
     ) +
     theme_clean() +
@@ -173,35 +186,34 @@ fig4_japan_evolution <- function() {
 
 # ================================================================ report
 report <- function() {
-  f <- wb %>%
-    filter(sex == "female") %>%
+  f <- tot %>%
+    filter(sex == "female", year >= YR0) %>%
     select(iso, country, year, value)
-  gap <- wb %>%
+  gap <- tot %>%
+    filter(year >= YR0) %>%
     pivot_wider(names_from = sex, values_from = value) %>%
     mutate(gap = male - female)
 
-  cat("\nKEY FINDINGS\n============\n")
+  cat("\nKEY FINDINGS (OECD)\n===================\n")
   for (cc in c("Japan", "Sweden")) {
     s <- f %>% filter(country == cc) %>% arrange(year)
-    cat(sprintf("%s: female LFPR %.1f%% (1990) -> %.1f%% (%d), change %+.1f pp\n",
-                cc, s$value[s$year == 1990], tail(s$value, 1),
-                tail(s$year, 1), tail(s$value, 1) - s$value[s$year == 1990]))
+    cat(sprintf("%s: female LFPR 15+ %.1f%% (%d) -> %.1f%% (%d), change %+.1f pp\n",
+                cc, s$value[1], s$year[1], tail(s$value, 1),
+                tail(s$year, 1), tail(s$value, 1) - s$value[1]))
   }
   for (cc in c("Japan", "Sweden")) {
     s <- gap %>% filter(country == cc) %>% arrange(year)
-    cat(sprintf("%s: gender gap %.1f pp (1990) -> %.1f pp (%d), narrowed by %.1f pp\n",
-                cc, s$gap[s$year == 1990], tail(s$gap, 1),
-                tail(s$year, 1), s$gap[s$year == 1990] - tail(s$gap, 1)))
+    cat(sprintf("%s: gender gap 15+ %.1f pp (%d) -> %.1f pp (%d), narrowed by %.1f pp\n",
+                cc, s$gap[1], s$year[1], tail(s$gap, 1),
+                tail(s$year, 1), s$gap[1] - tail(s$gap, 1)))
   }
-  for (yr in c(1990, 2024)) {
-    for (cc in c("Japan", "Sweden")) {
-      s <- ilo %>% filter(country == cc, sex == "female", year == yr)
-      dip <- s$value[s$age == "25-29"] - s$value[s$age == "30-34"]
-      cat(sprintf("%s M-dip depth (%d): %+.1f pp (25-29 minus 30-34)\n",
-                  cc, yr, dip))
-    }
+  for (yr in c(1990, 2000, 2024)) {
+    s <- age %>% filter(country == "Japan", sex == "female", year == yr)
+    dip <- s$value[s$age == "25-29"] - s$value[s$age == "30-34"]
+    cat(sprintf("Japan M-dip depth (%d): %+.1f pp (25-29 minus 30-34)\n",
+                yr, dip))
   }
-  s <- ilo %>% filter(sex == "female", age == "25-29", year == 2024)
+  s <- age %>% filter(sex == "female", age == "25-29", year == 2024)
   cat(sprintf("2024, ages 25-29: Japan %.1f%% vs Sweden %.1f%%\n",
               s$value[s$country == "Japan"], s$value[s$country == "Sweden"]))
 }
